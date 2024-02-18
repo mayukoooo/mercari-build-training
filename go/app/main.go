@@ -27,7 +27,7 @@ type Items struct {
 	Category string `json:"category"`
 }
 
-type ItemsList struct {
+type ItemList struct {
 	Items []Items `json:"items"`
 }
 
@@ -50,18 +50,18 @@ func addItem(c echo.Context) error {
 		log.Panic(error)
 	}
 
-	var itemsList ItemsList
-	if error := json.Unmarshal(data, &itemsList); error != nil {
+	var itemList ItemList
+	if error := json.Unmarshal(data, &itemList); error != nil {
 		log.Panic(error)
 	}
 
 	name := c.FormValue("name")
 	category := c.FormValue("category")
-
 	newItem := Items{Name: name, Category: category}
-	itemsList.Items = append(itemsList.Items, newItem)
 
-	updatedData, err := json.Marshal(itemsList)
+	itemList.Items = append(itemList.Items, newItem)
+
+	updatedData, err := json.Marshal(itemList)
 	if err != nil {
 		log.Panic(err)
 	}
