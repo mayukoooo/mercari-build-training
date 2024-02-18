@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -20,15 +21,53 @@ type Response struct {
 	Message string `json:"message"`
 }
 
+type Items struct {
+	Name     string `json:"name"`
+	Category string `json:"category"`
+}
+
+type ItemsList struct {
+	Items []Items `json:"items"`
+}
+
 func root(c echo.Context) error {
 	res := Response{Message: "Hello, world!"}
 	return c.JSON(http.StatusOK, res)
 }
 
+func getItems(c echo.Context) error {
+	data, err := os.ReadFile("path/to/item.json")
+	if err != nil {
+		return err
+	}
+	return c.JSONBlob(http.StatusOK, data)
+}
+
 func addItem(c echo.Context) error {
-	// Get form data
+	data, error := os.ReadFile("path/to/item.json")
+	if error != nil {
+		log.Panic(error)
+	}
+	
+	var itemsList ItemsList
+	if error := json.Unmarshal(data, &itemsList); error != nil {
+		log.Panic(error)
+	}
+
 	name := c.FormValue("name")
-	c.Logger().Infof("Receive item: %s", name)
+	category := c.FormValue("category")
+
+	newItem := Items{Name: name, Category: category}
+	itemsList.Items = append(itemsList.Items, newItem)
+
+	updatedData, err := json.Marshal(itemsList)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	if err := os.WriteFile("path/to/item.json", updatedData, 0644); err != nil {
+		log.Panic(err)
+	}
 
 	message := fmt.Sprintf("item received: %s", name)
 	res := Response{Message: message}
