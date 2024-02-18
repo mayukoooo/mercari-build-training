@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -25,6 +27,7 @@ type Response struct {
 type Items struct {
 	Name     string `json:"name"`
 	Category string `json:"category"`
+	Image    string `json:"image_name"`
 }
 
 type ItemList struct {
@@ -57,7 +60,35 @@ func addItem(c echo.Context) error {
 
 	name := c.FormValue("name")
 	category := c.FormValue("category")
-	newItem := Items{Name: name, Category: category}
+
+	imageFile, error := c.FormFile("image")
+	if error != nil {
+		log.Panic(error)
+	}
+
+	src, err := imageFile.Open()
+	if err != nil {
+		log.Panic(error)
+	}
+	defer src.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, src); err != nil {
+		log.Panic(error)
+	}
+	src.Seek(0, 0)
+	hashed := fmt.Sprintf("%x", hash.Sum(nil)) + ".jpg"
+
+	dst, err := os.Create(path.Join(ImgDir, hashed))
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
+	if _, err := io.Copy(dst, src); err != nil {
+		return err
+	}
+
+	newItem := Items{Name: name, Category: category, Image: hashed}
 
 	itemList.Items = append(itemList.Items, newItem)
 
