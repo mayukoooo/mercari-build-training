@@ -15,6 +15,7 @@ import (
 
 const (
 	ImgDir = "images"
+	itemsJson = "items.json"
 )
 
 type Response struct {
@@ -36,7 +37,7 @@ func root(c echo.Context) error {
 }
 
 func getItems(c echo.Context) error {
-	data, err := os.ReadFile("path/to/items.json")
+	data, err := os.ReadFile("itemsJson")
 	if err != nil {
 		return err
 	}
@@ -44,7 +45,7 @@ func getItems(c echo.Context) error {
 }
 
 func addItem(c echo.Context) error {
-	data, error := os.ReadFile("path/to/items.json")
+	data, error := os.ReadFile("itemsJson")
 	if error != nil {
 		log.Panic(error)
 	}
@@ -65,7 +66,7 @@ func addItem(c echo.Context) error {
 		log.Panic(err)
 	}
 
-	if err := os.WriteFile("path/to/items.json", updatedData, 0644); err != nil {
+	if err := os.WriteFile("itemsJson", updatedData, 0644); err != nil {
 		log.Panic(err)
 	}
 
