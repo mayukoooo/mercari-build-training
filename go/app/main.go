@@ -47,7 +47,7 @@ func getItems(c echo.Context) error {
 func addItem(c echo.Context) error {
 	data, error := os.ReadFile(itemsJson)
 	if error != nil {
-		c.Logger().Error("Notfound ./items.json")
+		c.Logger().Error("Notfound items.json")
 	}
 
 	var itemList ItemList
