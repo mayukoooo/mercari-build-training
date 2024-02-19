@@ -24,14 +24,14 @@ type Response struct {
 	Message string `json:"message"`
 }
 
-type Items struct {
+type Item struct {
 	Name     string `json:"name"`
 	Category string `json:"category"`
 	Image    string `json:"image_name"`
 }
 
 type ItemList struct {
-	Items []Items `json:"items"`
+	Items []Item `json:"items"`
 }
 
 func root(c echo.Context) error {
@@ -50,16 +50,17 @@ func getItems(c echo.Context) error {
 func addItem(c echo.Context) error {
 	data, error := os.ReadFile(itemsJson)
 	if error != nil {
-		log.Panic(error)
+		c.Logger().Error("Notfound items.json")
 	}
 
 	var itemList ItemList
 	if error := json.Unmarshal(data, &itemList); error != nil {
-		log.Panic(error)
+		c.Logger().Error("Failed to unmarshal items.json")
 	}
 
 	name := c.FormValue("name")
 	category := c.FormValue("category")
+	newItem := Item{Name: name, Category: category}
 
 	imageFile, error := c.FormFile("image")
 	if error != nil {
@@ -94,11 +95,11 @@ func addItem(c echo.Context) error {
 
 	updatedData, err := json.Marshal(itemList)
 	if err != nil {
-		log.Panic(err)
+		c.Logger().Error("Failed to marshal items.json")
 	}
 
 	if err := os.WriteFile(itemsJson, updatedData, 0644); err != nil {
-		log.Panic(err)
+		c.Logger().Error("Failed to write items.json")
 	}
 
 	message := fmt.Sprintf("item received: %s", name)
