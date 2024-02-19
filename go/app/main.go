@@ -22,13 +22,13 @@ type Response struct {
 	Message string `json:"message"`
 }
 
-type Items struct {
+type Item struct {
 	Name     string `json:"name"`
 	Category string `json:"category"`
 }
 
 type ItemList struct {
-	Items []Items `json:"items"`
+	Items []Item `json:"items"`
 }
 
 func root(c echo.Context) error {
@@ -57,7 +57,7 @@ func addItem(c echo.Context) error {
 
 	name := c.FormValue("name")
 	category := c.FormValue("category")
-	newItem := Items{Name: name, Category: category}
+	newItem := Item{Name: name, Category: category}
 
 	itemList.Items = append(itemList.Items, newItem)
 
