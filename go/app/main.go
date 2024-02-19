@@ -25,6 +25,7 @@ type Response struct {
 }
 
 type Item struct {
+	ID       string `json:"id"`
 	Name     string `json:"name"`
 	Category string `json:"category"`
 	Image    string `json:"image_name"`
@@ -109,6 +110,28 @@ func addItem(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
+func getItemById(c echo.Context) error {
+	id := c.Param("id")
+	data, err := os.ReadFile(itemsJson)
+	if err != nil {
+		c.Logger().Error("Failed to read items.json")
+	}
+
+	var itemList ItemList
+	if error := json.Unmarshal(data, &itemList); error != nil {
+		c.Logger().Error("Failed to unmarshal items.json")
+	}
+
+	for _, item := range itemList.Items {
+		if item.ID == id {
+			return c.JSON(http.StatusOK, item)
+		}
+	}
+
+	res := Response{Message: "Item not found"}
+	return c.JSON(http.StatusNotFound, res)
+}
+
 func getImg(c echo.Context) error {
 	// Create image path
 	imgPath := path.Join(ImgDir, c.Param("imageFilename"))
@@ -145,6 +168,7 @@ func main() {
 	e.GET("/", root)
 	e.POST("/items", addItem)
 	e.GET("/items", getItems)
+	e.GET("/items/:id", getItemById)
 	e.GET("/image/:imageFilename", getImg)
 
 	// Start server
