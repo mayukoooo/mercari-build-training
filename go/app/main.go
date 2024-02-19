@@ -63,29 +63,31 @@ func addItem(c echo.Context) error {
 
 	imageFile, error := c.FormFile("image")
 	if error != nil {
-		log.Panic(error)
+		c.Logger().Error("Failed to get image file")
 	}
 
 	src, err := imageFile.Open()
 	if err != nil {
-		log.Panic(error)
+		c.Logger().Error("Failed to open image file")
 	}
 	defer src.Close()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, src); err != nil {
-		log.Panic(error)
+		c.Logger().Error("Failed to hash image file")
 	}
+
 	src.Seek(0, 0)
 	hashed := fmt.Sprintf("%x", hash.Sum(nil)) + ".jpg"
 
 	dst, err := os.Create(path.Join(ImgDir, hashed))
 	if err != nil {
-		return err
+		c.Logger().Error("Failed to create image file")
 	}
+
 	defer dst.Close()
 	if _, err := io.Copy(dst, src); err != nil {
-		return err
+		c.Logger().Error("Failed to copy image file")
 	}
 
 	newItem := Item{Name: name, Category: category, Image: hashed}
