@@ -60,7 +60,6 @@ func addItem(c echo.Context) error {
 
 	name := c.FormValue("name")
 	category := c.FormValue("category")
-	newItem := Item{Name: name, Category: category}
 
 	imageFile, error := c.FormFile("image")
 	if error != nil {
@@ -89,7 +88,7 @@ func addItem(c echo.Context) error {
 		return err
 	}
 
-	newItem := Items{Name: name, Category: category, Image: hashed}
+	newItem := Item{Name: name, Category: category, Image: hashed}
 
 	itemList.Items = append(itemList.Items, newItem)
 
