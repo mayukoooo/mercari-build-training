@@ -85,7 +85,7 @@ func addItem(c echo.Context) error {
 	}
 
 	src.Seek(0, 0)
-	hashed := fmt.Sprintf("%x", hash.Sum(nil)) + ".jpg"
+	hashed := fmt.Sprintf("%x.jpg", hash.Sum(nil))
 
 	dst, err := os.Create(path.Join(ImgDir, hashed))
 	if err != nil {
