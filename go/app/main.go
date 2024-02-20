@@ -116,6 +116,21 @@ func getAllItemsFromDB(db *sql.DB, c echo.Context) echo.HandlerFunc  {
 	}
 }
 
+func addItemToDB (item Item) error {
+	db, err := sql.Open("sqlite3", "./mercari.sqlite3")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec("INSERT INTO items (id, name, category, image) VALUES (?, ?, ?, ?)", item.ID, item.Name, item.Category, item.Image)
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func addItem(c echo.Context) error {
 	data, error := os.ReadFile(itemsJson)
 	if error != nil {
