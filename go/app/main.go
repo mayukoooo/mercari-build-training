@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -94,8 +95,9 @@ func addItem(c echo.Context) error {
 	}
 
 	var itemList ItemList
-	if error := json.Unmarshal(data, &itemList); error != nil {
-		getErrorStatus(c, "Failed to unmarshal items.json")
+	newData := bytes.NewReader(data)
+	if error := json.NewDecoder(newData).Decode(&itemList); error != nil {
+		getErrorStatus(c, "Failed to newReader items.json")
 	}
 
 	name := c.FormValue("name")
@@ -129,8 +131,9 @@ func getItemById(c echo.Context) error {
 	}
 
 	var itemList ItemList
-	if error := json.Unmarshal(data, &itemList); error != nil {
-		getErrorStatus(c,"Failed to unmarshal items.json")
+	newData := bytes.NewReader(data)
+	if error := json.NewDecoder(newData).Decode(&itemList); error != nil {
+		getErrorStatus(c,"Failed to newDecoder items.json")
 	}
 
 	for _, item := range itemList.Items {
