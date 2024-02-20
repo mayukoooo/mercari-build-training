@@ -31,6 +31,12 @@ type ItemList struct {
 	Items []Item `json:"items"`
 }
 
+func getErrorStatus(c echo.Context, message string) error {
+	c.Logger().Error(message)
+	res := Response{Message: message}
+	return c.JSON(http.StatusInternalServerError, res)
+}
+
 func root(c echo.Context) error {
 	res := Response{Message: "Hello, world!"}
 	return c.JSON(http.StatusOK, res)
@@ -47,12 +53,12 @@ func getItems(c echo.Context) error {
 func addItem(c echo.Context) error {
 	data, error := os.ReadFile(itemsJson)
 	if error != nil {
-		c.Logger().Error("Notfound items.json")
+		getErrorStatus(c, "Notfound items.json")
 	}
 
 	var itemList ItemList
 	if error := json.Unmarshal(data, &itemList); error != nil {
-		c.Logger().Error("Failed to unmarshal items.json")
+		getErrorStatus(c, "Failed to unmarshal items.json")
 	}
 
 	name := c.FormValue("name")
@@ -63,11 +69,11 @@ func addItem(c echo.Context) error {
 
 	updatedData, err := json.Marshal(itemList)
 	if err != nil {
-		c.Logger().Error("Failed to marshal items.json")
+		getErrorStatus(c, "Failed to marshal items.json")
 	}
 
 	if err := os.WriteFile(itemsJson, updatedData, 0644); err != nil {
-		c.Logger().Error("Failed to write items.json")
+		getErrorStatus(c, "Failed to write items.json")
 	}
 
 	message := fmt.Sprintf("item received: %s", name)
