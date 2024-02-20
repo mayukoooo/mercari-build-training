@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -86,6 +87,33 @@ func getHashedImage(c echo.Context) string {
 	}
 
 	return hashedImage
+}
+
+func getAllItemsFromDB(db *sql.DB, c echo.Context) echo.HandlerFunc  {
+	db, err := sql.Open("sqlite3", "./mercari.sqlite3")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT * FROM items")
+	if err != nil {
+		getErrorStatus(c, "Failed to get items from DB")
+	}
+	defer rows.Close()
+
+	var itemList ItemList
+	for rows.Next() {
+		var item Item
+		err = rows.Scan(&item.ID, &item.Name, &item.Category, &item.Image)
+		if err != nil {
+			getErrorStatus(c, "Failed to scan rows")
+		}
+		itemList.Items = append(itemList.Items, item)
+	}
+	return func(c echo.Context) error {
+		return c.JSON(http.StatusOK, itemList)
+	}
 }
 
 func addItem(c echo.Context) error {
