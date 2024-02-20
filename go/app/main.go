@@ -54,20 +54,7 @@ func getItems(c echo.Context) error {
 	return c.JSONBlob(http.StatusOK, data)
 }
 
-func addItem(c echo.Context) error {
-	data, error := os.ReadFile(itemsJson)
-	if error != nil {
-		getErrorStatus(c, "Notfound items.json")
-	}
-
-	var itemList ItemList
-	if error := json.Unmarshal(data, &itemList); error != nil {
-		getErrorStatus(c, "Failed to unmarshal items.json")
-	}
-
-	name := c.FormValue("name")
-	category := c.FormValue("category")
-
+func getHashedImage(c echo.Context) string {
 	imageFile, error := c.FormFile("image")
 	if error != nil {
 		getErrorStatus(c, "Failed to get image file")
@@ -85,9 +72,9 @@ func addItem(c echo.Context) error {
 	}
 
 	src.Seek(0, 0)
-	hashed := fmt.Sprintf("%x.jpg", hash.Sum(nil))
+	hashedImage := fmt.Sprintf("%x.jpg", hash.Sum(nil))
 
-	dst, err := os.Create(path.Join(ImgDir, hashed))
+	dst, err := os.Create(path.Join(ImgDir, hashedImage))
 	if err != nil {
 		getErrorStatus(c, "Failed to create image file")
 	}
@@ -97,7 +84,25 @@ func addItem(c echo.Context) error {
 		getErrorStatus(c, "Failed to copy image file")
 	}
 
-	newItem := Item{Name: name, Category: category, Image: hashed}
+	return hashedImage
+}
+
+func addItem(c echo.Context) error {
+	data, error := os.ReadFile(itemsJson)
+	if error != nil {
+		getErrorStatus(c, "Notfound items.json")
+	}
+
+	var itemList ItemList
+	if error := json.Unmarshal(data, &itemList); error != nil {
+		getErrorStatus(c, "Failed to unmarshal items.json")
+	}
+
+	name := c.FormValue("name")
+	category := c.FormValue("category")
+	hashedImage := getHashedImage(c)
+
+	newItem := Item{Name: name, Category: category, Image: hashedImage}
 
 	itemList.Items = append(itemList.Items, newItem)
 
