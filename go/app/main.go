@@ -70,18 +70,18 @@ func addItem(c echo.Context) error {
 
 	imageFile, error := c.FormFile("image")
 	if error != nil {
-		c.Logger().Error("Failed to get image file")
+		getErrorStatus(c, "Failed to get image file")
 	}
 
 	src, err := imageFile.Open()
 	if err != nil {
-		c.Logger().Error("Failed to open image file")
+		getErrorStatus(c, "Failed to open image file")
 	}
 	defer src.Close()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, src); err != nil {
-		c.Logger().Error("Failed to hash image file")
+		getErrorStatus(c, "Failed to hash image file")
 	}
 
 	src.Seek(0, 0)
@@ -89,12 +89,12 @@ func addItem(c echo.Context) error {
 
 	dst, err := os.Create(path.Join(ImgDir, hashed))
 	if err != nil {
-		c.Logger().Error("Failed to create image file")
+		getErrorStatus(c, "Failed to create image file")
 	}
 
 	defer dst.Close()
 	if _, err := io.Copy(dst, src); err != nil {
-		c.Logger().Error("Failed to copy image file")
+		getErrorStatus(c, "Failed to copy image file")
 	}
 
 	newItem := Item{Name: name, Category: category, Image: hashed}
@@ -120,12 +120,12 @@ func getItemById(c echo.Context) error {
 	id := c.Param("id")
 	data, err := os.ReadFile(itemsJson)
 	if err != nil {
-		c.Logger().Error("Failed to read items.json")
+		getErrorStatus(c, "Failed to read items.json")
 	}
 
 	var itemList ItemList
 	if error := json.Unmarshal(data, &itemList); error != nil {
-		c.Logger().Error("Failed to unmarshal items.json")
+		getErrorStatus(c,"Failed to unmarshal items.json")
 	}
 
 	for _, item := range itemList.Items {
