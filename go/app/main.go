@@ -132,35 +132,19 @@ func addItemToDB (item Item) error {
 }
 
 func addItem(c echo.Context) error {
-	data, error := os.ReadFile(itemsJson)
-	if error != nil {
-		getErrorStatus(c, "Notfound items.json")
-	}
-
-	var itemList ItemList
-	newData := bytes.NewReader(data)
-	if error := json.NewDecoder(newData).Decode(&itemList); error != nil {
-		getErrorStatus(c, "Failed to newReader items.json")
-	}
-
+	id := c.FormValue("id")
 	name := c.FormValue("name")
 	category := c.FormValue("category")
 	hashedImage := getHashedImage(c)
 
-	newItem := Item{Name: name, Category: category, Image: hashedImage}
+	newItem := Item{ID: id, Name: name, Category: category, Image: hashedImage}
 
-	itemList.Items = append(itemList.Items, newItem)
-
-	updatedData, err := json.Marshal(itemList)
-	if err != nil {
-		getErrorStatus(c, "Failed to marshal items.json")
+	if err := addItemToDB(newItem); err != nil {
+		res := Response{Message: fmt.Sprintf("Failed to add item to DB: %s", err)}
+		return c.JSON(http.StatusInternalServerError, res)
 	}
 
-	if err := os.WriteFile(itemsJson, updatedData, 0644); err != nil {
-		getErrorStatus(c, "Failed to write items.json")
-	}
-
-	message := fmt.Sprintf("item received: %s", name)
+	message := fmt.Sprintf("item received: %s", newItem)
 	res := Response{Message: message}
 
 	return c.JSON(http.StatusOK, res)
