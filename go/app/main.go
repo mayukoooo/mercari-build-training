@@ -106,32 +106,23 @@ func getItems(c echo.Context) error  {
 	return c.JSON(http.StatusOK, items)
 }
 
-func addItemToDB (item Item) error {
+func addItem(c echo.Context) error {
 	db, err := sql.Open("sqlite3", "./mercari.sqlite3")
 	if err != nil {
-		log.Fatal(err)
+		getErrorStatus(c, "Failed to open mercari.sqlite3")
 	}
 	defer db.Close()
 
-	_, err = db.Exec("INSERT INTO items (id, name, category, image) VALUES (?, ?, ?, ?)", item.ID, item.Name, item.Category, item.Image)
-
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func addItem(c echo.Context) error {
-	id := c.FormValue("id")
 	name := c.FormValue("name")
 	category := c.FormValue("category")
 	hashedImage := getHashedImage(c)
 
 	newItem := Item{Name: name, Category: category, Image: hashedImage}
 
-	if err := addItemToDB(newItem); err != nil {
-		res := Response{Message: fmt.Sprintf("Failed to add item to DB: %s", err)}
-		return c.JSON(http.StatusInternalServerError, res)
+	_, err = db.Exec("INSERT INTO items (name, category, image) VALUES (?, ?, ?)", name, category, hashedImage)
+
+	if err != nil {
+		getErrorStatus(c, "Failed to insert item")
 	}
 
 	message := fmt.Sprintf("item received: %s", newItem)
