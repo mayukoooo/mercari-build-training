@@ -81,7 +81,7 @@ func getHashedImage(c echo.Context) string {
 	return hashedImage
 }
 
-func getItems(c echo.Context) error  {
+func getItems(c echo.Context) error {
 	db, err := sql.Open("sqlite3", "../db/mercari.sqlite3")
 	if err != nil {
 		getErrorStatus(c, "Failed to copy image file")
