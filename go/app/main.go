@@ -27,7 +27,6 @@ type Response struct {
 }
 
 type Item struct {
-	ID       string `json:"id"`
 	Name     string `json:"name"`
 	Category string `json:"category"`
 	Image    string `json:"image_name"`
@@ -137,7 +136,7 @@ func addItem(c echo.Context) error {
 	category := c.FormValue("category")
 	hashedImage := getHashedImage(c)
 
-	newItem := Item{ID: id, Name: name, Category: category, Image: hashedImage}
+	newItem := Item{Name: name, Category: category, Image: hashedImage}
 
 	if err := addItemToDB(newItem); err != nil {
 		res := Response{Message: fmt.Sprintf("Failed to add item to DB: %s", err)}
