@@ -32,8 +32,8 @@ type Item struct {
 	Image    string `json:"image_name"`
 }
 
-type ItemList struct {
-	Items []Item `json:"items"`
+type Items struct {
+	Items []*Item `json:"items"`
 }
 
 func getErrorStatus(c echo.Context, message string) error {
@@ -45,14 +45,6 @@ func getErrorStatus(c echo.Context, message string) error {
 func root(c echo.Context) error {
 	res := Response{Message: "Hello, world!"}
 	return c.JSON(http.StatusOK, res)
-}
-
-func getItems(c echo.Context) error {
-	data, err := os.ReadFile(itemsJson)
-	if err != nil {
-		return err
-	}
-	return c.JSONBlob(http.StatusOK, data)
 }
 
 func getHashedImage(c echo.Context) string {
@@ -88,31 +80,29 @@ func getHashedImage(c echo.Context) string {
 	return hashedImage
 }
 
-func getAllItemsFromDB(db *sql.DB, c echo.Context) echo.HandlerFunc  {
-	db, err := sql.Open("sqlite3", "./mercari.sqlite3")
+func getItems(c echo.Context) error  {
+	db, err := sql.Open("sqlite3", "../db/mercari.sqlite3")
 	if err != nil {
-		log.Fatal(err)
+		getErrorStatus(c, "Failed to copy image file")
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT * FROM items")
+	rows, err := db.Query("SELECT name, category, image_name FROM items")
 	if err != nil {
 		getErrorStatus(c, "Failed to get items from DB")
 	}
 	defer rows.Close()
 
-	var itemList ItemList
+	items := Items{Items: []*Item{}}
 	for rows.Next() {
 		var item Item
-		err = rows.Scan(&item.ID, &item.Name, &item.Category, &item.Image)
+		err = rows.Scan(&item.Name, &item.Category, &item.Image)
 		if err != nil {
 			getErrorStatus(c, "Failed to scan rows")
 		}
-		itemList.Items = append(itemList.Items, item)
+		items.Items = append(items.Items, &item)
 	}
-	return func(c echo.Context) error {
-		return c.JSON(http.StatusOK, itemList)
-	}
+	return c.JSON(http.StatusOK, items)
 }
 
 func addItemToDB (item Item) error {
@@ -156,13 +146,13 @@ func getItemById(c echo.Context) error {
 		getErrorStatus(c, "Failed to read items.json")
 	}
 
-	var itemList ItemList
+	var items Items
 	newData := bytes.NewReader(data)
-	if error := json.NewDecoder(newData).Decode(&itemList); error != nil {
+	if error := json.NewDecoder(newData).Decode(&items); error != nil {
 		getErrorStatus(c,"Failed to newDecoder items.json")
 	}
 
-	for _, item := range itemList.Items {
+	for _, item := range items.Items {
 		if item.ID == id {
 			return c.JSON(http.StatusOK, item)
 		}
