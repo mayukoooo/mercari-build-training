@@ -36,6 +36,7 @@ type Items struct {
 	Items []*Item `json:"items"`
 }
 
+// TODO: エラーが出ても処理が続行されるので修正する
 func getErrorStatus(c echo.Context, message string) error {
 	c.Logger().Error(message)
 	res := Response{Message: message}
