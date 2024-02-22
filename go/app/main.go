@@ -37,7 +37,9 @@ type Items struct {
 	Items []*Item `json:"items"`
 }
 
-// TODO: エラーが出ても処理が続行されるので修正する
+// エラーをログに出力し、エラーメッセージを返す関数
+// TODO:エラーが出ても処理が続行されるので修正する
+// TODO：命名修正_parseError
 func getErrorStatus(c echo.Context, message string) error {
 	c.Logger().Error(message)
 	res := Response{Message: message}
@@ -52,6 +54,7 @@ func root(c echo.Context) error {
 func getHashedImage(c echo.Context) string {
 	imageFile, error := c.FormFile("image")
 	if error != nil {
+		// TODO：返したものを受け取ってない
 		getErrorStatus(c, "Failed to get image file")
 	}
 
