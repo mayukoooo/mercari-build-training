@@ -136,7 +136,6 @@ func addItem(c echo.Context) error {
 }
 
 func getItemById(c echo.Context) error {
-	id := c.Param("id")
 	data, err := os.ReadFile(itemsJson)
 	if err != nil {
 		getErrorStatus(c, "Failed to read items.json")
@@ -148,11 +147,12 @@ func getItemById(c echo.Context) error {
 		getErrorStatus(c,"Failed to newDecoder items.json")
 	}
 
-	for _, item := range items.Items {
-		if item.ID == id {
-			return c.JSON(http.StatusOK, item)
-		}
-	}
+	// TODO: STEP3のPRで修正する
+	// for _, item := range items.Items {
+	// 	if item.ID == id {
+	// 		return c.JSON(http.StatusOK, item)
+	// 	}
+	// }
 
 	res := Response{Message: "Item not found"}
 	return c.JSON(http.StatusNotFound, res)
