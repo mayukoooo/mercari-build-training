@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -26,7 +27,6 @@ type Response struct {
 }
 
 type Item struct {
-	ID       string `json:"id"`
 	Name     string `json:"name"`
 	Category string `json:"category"`
 	Image    string `json:"image_name"`
@@ -134,7 +134,6 @@ func addItem(c echo.Context) error {
 }
 
 func getItemById(c echo.Context) error {
-	id := c.Param("id")
 	data, error := os.ReadFile(itemsJson)
 	if error != nil {
 		parseError(c, "Failed to read items.json", error)
@@ -148,14 +147,20 @@ func getItemById(c echo.Context) error {
 		return error
 	}
 
-	for _, item := range items.Items {
-		if item.ID == id {
-			return c.JSON(http.StatusOK, item)
-		}
+	id := c.Param("id")
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		parseError(c, "Invalid ID format", err)
+		return err
 	}
 
-	res := Response{Message: "Item not found"}
-	return c.JSON(http.StatusNotFound, res)
+	if idInt <= 0 || idInt > len(items.Items) {
+		res := Response{Message: "Item not found"}
+		return c.JSON(http.StatusNotFound, res)
+	}
+
+	item := items.Items[idInt - 1]
+	return c.JSON(http.StatusOK, item)
 }
 
 func getImg(c echo.Context) error {
