@@ -113,18 +113,22 @@ func addItem(c echo.Context) error {
 	}
 	defer db.Close()
 
+	// テーブルの存在を確認するクエリ
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category TEXT, image_name TEXT)")
+	if err != nil {
+	    getErrorStatus(c, "Failed to create table")
+	}
+
 	name := c.FormValue("name")
 	category := c.FormValue("category")
 	hashedImage := getHashedImage(c)
 
-	newItem := Item{Name: name, Category: category, Image: hashedImage}
-
-	_, err = db.Exec("INSERT INTO items (name, category, image) VALUES (?, ?, ?)", name, category, hashedImage)
-
+	_, err = db.Exec("INSERT INTO items (name, category, image_name) VALUES (?, ?, ?)", name, category, hashedImage)
 	if err != nil {
 		getErrorStatus(c, "Failed to insert item")
 	}
 
+	newItem := Item{Name: name, Category: category, Image: hashedImage}
 	message := fmt.Sprintf("item received: %s", newItem)
 	res := Response{Message: message}
 
