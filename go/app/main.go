@@ -32,8 +32,8 @@ type Item struct {
 	Image    string `json:"image_name"`
 }
 
-type ItemList struct {
-	Items []Item `json:"items"`
+type Items struct {
+	Items []*Item `json:"items"`
 }
 
 func getErrorStatus(c echo.Context, message string) error {
@@ -94,9 +94,9 @@ func addItem(c echo.Context) error {
 		getErrorStatus(c, "Notfound items.json")
 	}
 
-	var itemList ItemList
+	var items Items
 	newData := bytes.NewReader(data)
-	if error := json.NewDecoder(newData).Decode(&itemList); error != nil {
+	if error := json.NewDecoder(newData).Decode(&items); error != nil {
 		getErrorStatus(c, "Failed to newReader items.json")
 	}
 
@@ -106,9 +106,9 @@ func addItem(c echo.Context) error {
 
 	newItem := Item{Name: name, Category: category, Image: hashedImage}
 
-	itemList.Items = append(itemList.Items, newItem)
+	items.Items = append(items.Items, &newItem)
 
-	updatedData, err := json.Marshal(itemList)
+	updatedData, err := json.Marshal(items)
 	if err != nil {
 		getErrorStatus(c, "Failed to marshal items.json")
 	}
@@ -130,13 +130,13 @@ func getItemById(c echo.Context) error {
 		getErrorStatus(c, "Failed to read items.json")
 	}
 
-	var itemList ItemList
+	var items Items
 	newData := bytes.NewReader(data)
-	if error := json.NewDecoder(newData).Decode(&itemList); error != nil {
+	if error := json.NewDecoder(newData).Decode(&items); error != nil {
 		getErrorStatus(c,"Failed to newDecoder items.json")
 	}
 
-	for _, item := range itemList.Items {
+	for _, item := range items.Items {
 		if item.ID == id {
 			return c.JSON(http.StatusOK, item)
 		}
