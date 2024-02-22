@@ -88,8 +88,7 @@ func getItems(c echo.Context) error {
 		getErrorStatus(c, "Failed to copy image file")
 	}
 	defer db.Close()
-
-	rows, err := db.Query("SELECT items.id, items.name, items.category_id AS category, items.image_name FROM items INNER JOIN category ON items.category_id = category.id;")
+	rows, err := db.Query("SELECT items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
 	if err != nil {
 		getErrorStatus(c, "Failed to get items from DB")
 	}
