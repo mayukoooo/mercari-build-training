@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -173,6 +174,33 @@ func getImg(c echo.Context) error {
 	return c.File(imgPath)
 }
 
+func searchItems(c echo.Context) error {
+    keyword := c.QueryParam("keyword")
+    db, err := sql.Open("sqlite3", "./mercari.sqlite3")
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to connect to database"})
+    }
+    defer db.Close()
+
+    query := `SELECT name, category FROM items WHERE name LIKE ?`
+    rows, err := db.Query(query, "%"+keyword+"%")
+    if err != nil {
+        return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to query items"})
+    }
+    defer rows.Close()
+
+    var items []map[string]string
+    for rows.Next() {
+        var name, category string
+        if err := rows.Scan(&name, &category); err != nil {
+            return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to read query results"})
+        }
+        items = append(items, map[string]string{"name": name, "category": category})
+    }
+
+    return c.JSON(http.StatusOK, map[string]interface{}{"items": items})
+}
+
 func main() {
 	e := echo.New()
 
@@ -196,6 +224,7 @@ func main() {
 	e.GET("/items", getItems)
 	e.GET("/items/:id", getItemById)
 	e.GET("/image/:imageFilename", getImg)
+	e.GET("/search", searchItems) // Added searchItems route
 
 	// Start server
 	e.Logger.Fatal(e.Start(":9000"))
