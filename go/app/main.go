@@ -36,7 +36,7 @@ type Items struct {
 	Items []*Item `json:"items"`
 }
 
-func getErrorStatus(c echo.Context, message string) error {
+func parseError(c echo.Context, message string) error {
 	c.Logger().Error(message)
 	res := Response{Message: message}
 	return c.JSON(http.StatusInternalServerError, res)
@@ -58,18 +58,18 @@ func getItems(c echo.Context) error {
 func getHashedImage(c echo.Context) string {
 	imageFile, error := c.FormFile("image")
 	if error != nil {
-		getErrorStatus(c, "Failed to get image file")
+		parseError(c, "Failed to get image file")
 	}
 
 	src, err := imageFile.Open()
 	if err != nil {
-		getErrorStatus(c, "Failed to open image file")
+		parseError(c, "Failed to open image file")
 	}
 	defer src.Close()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, src); err != nil {
-		getErrorStatus(c, "Failed to hash image file")
+		parseError(c, "Failed to hash image file")
 	}
 
 	src.Seek(0, 0)
@@ -77,12 +77,12 @@ func getHashedImage(c echo.Context) string {
 
 	dst, err := os.Create(path.Join(ImgDir, hashedImage))
 	if err != nil {
-		getErrorStatus(c, "Failed to create image file")
+		parseError(c, "Failed to create image file")
 	}
 
 	defer dst.Close()
 	if _, err := io.Copy(dst, src); err != nil {
-		getErrorStatus(c, "Failed to copy image file")
+		parseError(c, "Failed to copy image file")
 	}
 
 	return hashedImage
@@ -91,13 +91,13 @@ func getHashedImage(c echo.Context) string {
 func addItem(c echo.Context) error {
 	data, error := os.ReadFile(itemsJson)
 	if error != nil {
-		getErrorStatus(c, "Notfound items.json")
+		parseError(c, "Notfound items.json")
 	}
 
 	var items Items
 	newData := bytes.NewReader(data)
 	if error := json.NewDecoder(newData).Decode(&items); error != nil {
-		getErrorStatus(c, "Failed to newReader items.json")
+		parseError(c, "Failed to newReader items.json")
 	}
 
 	name := c.FormValue("name")
@@ -110,11 +110,11 @@ func addItem(c echo.Context) error {
 
 	updatedData, err := json.Marshal(items)
 	if err != nil {
-		getErrorStatus(c, "Failed to marshal items.json")
+		parseError(c, "Failed to marshal items.json")
 	}
 
 	if err := os.WriteFile(itemsJson, updatedData, 0644); err != nil {
-		getErrorStatus(c, "Failed to write items.json")
+		parseError(c, "Failed to write items.json")
 	}
 
 	message := fmt.Sprintf("item received: %s", name)
@@ -127,13 +127,13 @@ func getItemById(c echo.Context) error {
 	id := c.Param("id")
 	data, err := os.ReadFile(itemsJson)
 	if err != nil {
-		getErrorStatus(c, "Failed to read items.json")
+		parseError(c, "Failed to read items.json")
 	}
 
 	var items Items
 	newData := bytes.NewReader(data)
 	if error := json.NewDecoder(newData).Decode(&items); error != nil {
-		getErrorStatus(c,"Failed to newDecoder items.json")
+		parseError(c,"Failed to newDecoder items.json")
 	}
 
 	for _, item := range items.Items {
