@@ -89,7 +89,7 @@ func getItems(c echo.Context) error {
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT name, category, image_name FROM items")
+	rows, err := db.Query("SELECT items.id, items.name, items.category_id AS category, items.image_name FROM items INNER JOIN category ON items.category_id = category.id;")
 	if err != nil {
 		getErrorStatus(c, "Failed to get items from DB")
 	}
