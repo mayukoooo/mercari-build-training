@@ -28,14 +28,20 @@ type Response struct {
 	Message string `json:"message"`
 }
 
-type Item struct {
+type ReturnItem struct {
 	Name     string `json:"name"`
 	Category string `json:"category"`
 	Image    string `json:"image_name"`
 }
 
+type Item struct {
+	Name     string `json:"name"`
+	CategoryId int `json:"category_id"`
+	Image    string `json:"image_name"`
+}
+
 type Items struct {
-	Items []*Item `json:"items"`
+	Items []*ReturnItem `json:"items"`
 }
 
 func parseError(c echo.Context, message string, err error) {
@@ -50,7 +56,7 @@ func root(c echo.Context) error {
 }
 
 func getHashedImage(c echo.Context) (string, error) {
-	imageFile, err := c.FormFile("image")
+	imageFile, err := c.FormFile("image_name")
 	if err != nil {
 		parseError(c, "Failed to get image file", err)
 		return "", err
@@ -84,7 +90,7 @@ func getHashedImage(c echo.Context) (string, error) {
 		return "", err
 	}
 
-	return hashedImage ,nil
+	return hashedImage, nil
 }
 
 func getItems(c echo.Context) error {
@@ -102,9 +108,9 @@ func getItems(c echo.Context) error {
 	}
 	defer rows.Close()
 
-	items := Items{Items: []*Item{}}
+	items := Items{Items: []*ReturnItem{}}
 	for rows.Next() {
-		var item Item
+		var item ReturnItem
 		err = rows.Scan(&item.Name, &item.Category, &item.Image)
 		if err != nil {
 			parseError(c, "Failed to scan rows", err)
@@ -123,32 +129,33 @@ func addItem(c echo.Context) error {
 	}
 	defer db.Close()
 
-	// テーブルの存在を確認するクエリ
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category TEXT, image_name TEXT)")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category_id INTEGER, image_name TEXT)")
 	if err != nil {
 		parseError(c, "Failed to create table", err)
 		return err
 	}
 
 	name := c.FormValue("name")
-	category := c.FormValue("category")
+	categoryId := c.FormValue("category_id")
+	categoryIdInt, err := strconv.Atoi(categoryId)
+	if err != nil {
+		parseError(c, "Failed to convert category_id to int", err)
+		return err
+	}
+	
 	hashedImage, err := getHashedImage(c)
 	if err != nil {
 		parseError(c, "Failed to get hashed image", err)
 		return err
 	}
 
-	_, err = db.Exec("INSERT INTO items (name, category, image_name) VALUES (?, ?, ?)", name, category, hashedImage)
+	_, err = db.Exec("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)", name, categoryIdInt, hashedImage)
 	if err != nil {
-		parseError(c, "Failed to insert item", err)
+		parseError(c, "Failed to insert item into database", err)
         return err
 	}
 
-	newItem := Item{Name: name, Category: category, Image: hashedImage}
-	message := fmt.Sprintf("item received: %s", newItem)
-	res := Response{Message: message}
-
-	return c.JSON(http.StatusOK, res)
+	return c.JSON(http.StatusOK, map[string]string{"message": "item added"})
 }
 
 func getItemById(c echo.Context) error {
