@@ -110,7 +110,11 @@ func addItem(c echo.Context) error {
 
 	name := c.FormValue("name")
 	category := c.FormValue("category")
-	hashedImage, _ := getHashedImage(c)
+	hashedImage, error := getHashedImage(c)
+	if error != nil {
+		parseError(c, "Failed to get hashed image", error)
+		return error
+	}
 
 	newItem := Item{Name: name, Category: category, Image: hashedImage}
 
