@@ -28,14 +28,20 @@ type Response struct {
 	Message string `json:"message"`
 }
 
-type Item struct {
+type ReturnItem struct {
 	Name     string `json:"name"`
 	Category string `json:"category"`
 	Image    string `json:"image_name"`
 }
 
+type Item struct {
+	Name     string `json:"name"`
+	CategoryId int `json:"category_id"`
+	Image    string `json:"image_name"`
+}
+
 type Items struct {
-	Items []*Item `json:"items"`
+	Items []*ReturnItem `json:"items"`
 }
 
 func parseError(c echo.Context, message string, err error) {
@@ -50,23 +56,23 @@ func root(c echo.Context) error {
 }
 
 func getHashedImage(c echo.Context) (string, error) {
-	imageFile, error := c.FormFile("image")
-	if error != nil {
-		parseError(c, "Failed to get image file", error)
-		return "", error
+	imageFile, err := c.FormFile("image_name")
+	if err != nil {
+		parseError(c, "Failed to get image file", err)
+		return "", err
 	}
 
 	src, err := imageFile.Open()
 	if err != nil {
-		parseError(c, "Failed to open image file", error)
+		parseError(c, "Failed to open image file", err)
 		return "", err
 	}
 	defer src.Close()
 
 	hash := sha256.New()
-	if _, error := io.Copy(hash, src); err != nil {
-		parseError(c, "Failed to hash image file", error)
-		return "", error
+	if _, err := io.Copy(hash, src); err != nil {
+		parseError(c, "Failed to hash image file", err)
+		return "", err
 	}
 
 	src.Seek(0, 0)
@@ -79,36 +85,36 @@ func getHashedImage(c echo.Context) (string, error) {
 	}
 
 	defer dst.Close()
-	if _, error := io.Copy(dst, src); err != nil {
-		parseError(c, "Failed to copy image file", error)
-		return "", error
+	if _, err := io.Copy(dst, src); err != nil {
+		parseError(c, "Failed to copy image file", err)
+		return "", err
 	}
 
-	return hashedImage ,nil
+	return hashedImage, nil
 }
 
 func getItems(c echo.Context) error {
-	db, error := sql.Open("sqlite3", "../db/mercari.sqlite3")
-	if error != nil {
-		parseError(c, "Failed to open mercari.sqlite3", error)
-		return error
+	db, err := sql.Open("sqlite3", "../db/mercari.sqlite3")
+	if err != nil {
+		parseError(c, "Failed to open mercari.sqlite3", err)
+		return err
 	}
 	defer db.Close()
 
-	rows, error := db.Query("SELECT items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
-	if error != nil {
-		parseError(c, "Failed to get items from DB", error)
-		return error
+	rows, err := db.Query("SELECT items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
+	if err != nil {
+		parseError(c, "Failed to get items from DB", err)
+		return err
 	}
 	defer rows.Close()
 
-	items := Items{Items: []*Item{}}
+	items := Items{Items: []*ReturnItem{}}
 	for rows.Next() {
-		var item Item
-		error = rows.Scan(&item.Name, &item.Category, &item.Image)
-		if error != nil {
-			parseError(c, "Failed to scan rows", error)
-			return error
+		var item ReturnItem
+		err = rows.Scan(&item.Name, &item.Category, &item.Image)
+		if err != nil {
+			parseError(c, "Failed to scan rows", err)
+			return err
 		}
 		items.Items = append(items.Items, &item)
 	}
@@ -116,49 +122,54 @@ func getItems(c echo.Context) error {
 }
 
 func addItem(c echo.Context) error {
-	db, error := sql.Open("sqlite3", "./mercari.sqlite3")
-	if error != nil {
-		parseError(c, "Failed to open mercari.sqlite3", error)
-		return error
+	db, err := sql.Open("sqlite3", "./mercari.sqlite3")
+	if err != nil {
+		parseError(c, "Failed to open mercari.sqlite3", err)
+		return err
 	}
 	defer db.Close()
 
-	// テーブルの存在を確認するクエリ
-	_, error = db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category TEXT, image_name TEXT)")
-	if error != nil {
-		parseError(c, "Failed to create table", error)
-		return error
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category_id INTEGER, image_name TEXT)")
+	if err != nil {
+		parseError(c, "Failed to create table", err)
+		return err
 	}
 
 	name := c.FormValue("name")
-	category := c.FormValue("category")
-	hashedImage, _ := getHashedImage(c)
-
-	_, error = db.Exec("INSERT INTO items (name, category, image_name) VALUES (?, ?, ?)", name, category, hashedImage)
-	if error != nil {
-		parseError(c, "Failed to insert item", error)
-        return error
+	categoryId := c.FormValue("category_id")
+	categoryIdInt, err := strconv.Atoi(categoryId)
+	if err != nil {
+		parseError(c, "Failed to convert category_id to int", err)
+		return err
+	}
+	
+	hashedImage, err := getHashedImage(c)
+	if err != nil {
+		parseError(c, "Failed to get hashed image", err)
+		return err
 	}
 
-	newItem := Item{Name: name, Category: category, Image: hashedImage}
-	message := fmt.Sprintf("item received: %s", newItem)
-	res := Response{Message: message}
+	_, err = db.Exec("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)", name, categoryIdInt, hashedImage)
+	if err != nil {
+		parseError(c, "Failed to insert item into database", err)
+        return err
+	}
 
-	return c.JSON(http.StatusOK, res)
+	return c.JSON(http.StatusOK, map[string]string{"message": "item added"})
 }
 
 func getItemById(c echo.Context) error {
-	data, error := os.ReadFile(itemsJson)
-	if error != nil {
-		parseError(c, "Failed to read items.json", error)
-		return error
+	data, err := os.ReadFile(itemsJson)
+	if err != nil {
+		parseError(c, "Failed to read items.json", err)
+		return err
 	}
 
 	var items Items
 	newData := bytes.NewReader(data)
-	if error := json.NewDecoder(newData).Decode(&items); error != nil {
-		parseError(c,"Failed to newDecoder items.json", error)
-		return error
+	if err := json.NewDecoder(newData).Decode(&items); err != nil {
+		parseError(c,"Failed to newDecoder items.json", err)
+		return err
 	}
 
 	id := c.Param("id")
@@ -196,24 +207,28 @@ func searchItems(c echo.Context) error {
     keyword := c.QueryParam("keyword")
     db, err := sql.Open("sqlite3", "./mercari.sqlite3")
     if err != nil {
-        return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to connect to database"})
+		parseError(c, "Failed to connect to database", err)
+		return err
     }
     defer db.Close()
 
-    query := `SELECT name, category FROM items WHERE name LIKE ?`
+    query := `SELECT name, category_id FROM items WHERE name LIKE ?`
     rows, err := db.Query(query, "%"+keyword+"%")
     if err != nil {
-        return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to query items"})
+		parseError(c, "Failed to query items", err)
+		return err
     }
     defer rows.Close()
 
     var items []map[string]string
     for rows.Next() {
-        var name, category string
-        if err := rows.Scan(&name, &category); err != nil {
-            return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to read query results"})
+        var name string
+        var category_id int
+        if err := rows.Scan(&name, &category_id); err != nil {
+			parseError(c, "Failed to scan rows", err)
+			return err
         }
-        items = append(items, map[string]string{"name": name, "category": category})
+        items = append(items, map[string]string{"name": name, "category_id": strconv.Itoa(category_id)})
     }
 
     return c.JSON(http.StatusOK, map[string]interface{}{"items": items})
