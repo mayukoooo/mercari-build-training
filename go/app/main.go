@@ -38,10 +38,10 @@ type Items struct {
 	Items []*Item `json:"items"`
 }
 
-func parseError(c echo.Context, message string, err error) {
+func parseError(c echo.Context, message string, error error) {
 	res := Response{Message: message}
 	c.JSON(http.StatusInternalServerError, res);
-	c.Logger().Error(err);
+	c.Logger().Error(error);
 }
 
 func root(c echo.Context) error {
@@ -132,7 +132,11 @@ func addItem(c echo.Context) error {
 
 	name := c.FormValue("name")
 	category := c.FormValue("category")
-	hashedImage, _ := getHashedImage(c)
+	hashedImage, error := getHashedImage(c)
+	if error != nil {
+		parseError(c, "Failed to get hashed image", error)
+		return error
+	}
 
 	_, error = db.Exec("INSERT INTO items (name, category, image_name) VALUES (?, ?, ?)", name, category, hashedImage)
 	if error != nil {
