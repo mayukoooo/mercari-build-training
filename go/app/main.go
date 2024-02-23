@@ -207,24 +207,28 @@ func searchItems(c echo.Context) error {
     keyword := c.QueryParam("keyword")
     db, err := sql.Open("sqlite3", "./mercari.sqlite3")
     if err != nil {
-        return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to connect to database"})
+		parseError(c, "Failed to connect to database", err)
+		return err
     }
     defer db.Close()
 
-    query := `SELECT name, category FROM items WHERE name LIKE ?`
+    query := `SELECT name, category_id FROM items WHERE name LIKE ?`
     rows, err := db.Query(query, "%"+keyword+"%")
     if err != nil {
-        return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to query items"})
+		parseError(c, "Failed to query items", err)
+		return err
     }
     defer rows.Close()
 
     var items []map[string]string
     for rows.Next() {
-        var name, category string
-        if err := rows.Scan(&name, &category); err != nil {
-            return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to read query results"})
+        var name string
+        var category_id int
+        if err := rows.Scan(&name, &category_id); err != nil {
+			parseError(c, "Failed to scan rows", err)
+			return err
         }
-        items = append(items, map[string]string{"name": name, "category": category})
+        items = append(items, map[string]string{"name": name, "category_id": strconv.Itoa(category_id)})
     }
 
     return c.JSON(http.StatusOK, map[string]interface{}{"items": items})
