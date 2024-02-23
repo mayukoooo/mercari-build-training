@@ -36,10 +36,10 @@ type Items struct {
 	Items []*Item `json:"items"`
 }
 
-func parseError(c echo.Context, message string, err error) {
+func parseError(c echo.Context, message string, error error) {
 	res := Response{Message: message}
 	c.JSON(http.StatusInternalServerError, res);
-	c.Logger().Error(err);
+	c.Logger().Error(error);
 }
 
 func root(c echo.Context) error {
