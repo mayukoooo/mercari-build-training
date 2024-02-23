@@ -56,15 +56,15 @@ func getHashedImage(c echo.Context) (string, error) {
 		return "", error
 	}
 
-	src, error := imageFile.Open()
-	if error != nil {
+	src, err := imageFile.Open()
+	if err != nil {
 		parseError(c, "Failed to open image file", error)
-		return "", error
+		return "", err
 	}
 	defer src.Close()
 
 	hash := sha256.New()
-	if _, error := io.Copy(hash, src); error != nil {
+	if _, error := io.Copy(hash, src); err != nil {
 		parseError(c, "Failed to hash image file", error)
 		return "", error
 	}
@@ -72,14 +72,14 @@ func getHashedImage(c echo.Context) (string, error) {
 	src.Seek(0, 0)
 	hashedImage := fmt.Sprintf("%x.jpg", hash.Sum(nil))
 
-	dst, error := os.Create(path.Join(ImgDir, hashedImage))
-	if error != nil {
-		parseError(c, "Failed to create image file", error)
-		return "", error
+	dst, err := os.Create(path.Join(ImgDir, hashedImage))
+	if err != nil {
+		parseError(c, "Failed to create image file", err)
+		return "", err
 	}
 
 	defer dst.Close()
-	if _, error := io.Copy(dst, src); error != nil {
+	if _, error := io.Copy(dst, src); err != nil {
 		parseError(c, "Failed to copy image file", error)
 		return "", error
 	}
@@ -166,10 +166,10 @@ func getItemById(c echo.Context) error {
 	}
 
 	id := c.Param("id")
-	idInt, error := strconv.Atoi(id)
-	if error != nil {
-		parseError(c, "Invalid ID format", error)
-		return error
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		parseError(c, "Invalid ID format", err)
+		return err
 	}
 
 	if idInt <= 0 || idInt > len(items.Items) {
@@ -189,7 +189,7 @@ func getImg(c echo.Context) error {
 		res := Response{Message: "Image path does not end with .jpg"}
 		return c.JSON(http.StatusBadRequest, res)
 	}
-	if _, error := os.Stat(imgPath); error != nil {
+	if _, err := os.Stat(imgPath); err != nil {
 		c.Logger().Debugf("Image not found: %s", imgPath)
 		imgPath = path.Join(ImgDir, "default.jpg")
 	}
@@ -198,15 +198,15 @@ func getImg(c echo.Context) error {
 
 func searchItems(c echo.Context) error {
     keyword := c.QueryParam("keyword")
-    db, error := sql.Open("sqlite3", "./mercari.sqlite3")
-    if error != nil {
+    db, err := sql.Open("sqlite3", "./mercari.sqlite3")
+    if err != nil {
         return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to connect to database"})
     }
     defer db.Close()
 
     query := `SELECT name, category FROM items WHERE name LIKE ?`
-    rows, error := db.Query(query, "%"+keyword+"%")
-    if error != nil {
+    rows, err := db.Query(query, "%"+keyword+"%")
+    if err != nil {
         return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to query items"})
     }
     defer rows.Close()
@@ -214,7 +214,7 @@ func searchItems(c echo.Context) error {
     var items []map[string]string
     for rows.Next() {
         var name, category string
-        if error := rows.Scan(&name, &category); error != nil {
+        if err := rows.Scan(&name, &category); err != nil {
             return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Failed to read query results"})
         }
         items = append(items, map[string]string{"name": name, "category": category})
