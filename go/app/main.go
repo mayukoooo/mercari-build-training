@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -159,32 +157,26 @@ func addItem(c echo.Context) error {
 }
 
 func getItemById(c echo.Context) error {
-	data, err := os.ReadFile(itemsJson)
+	db, err := sql.Open("sqlite3", "../db/mercari.sqlite3")
 	if err != nil {
-		parseError(c, "Failed to read items.json", err)
+		parseError(c, "Failed to open database", err)
 		return err
 	}
-
-	var items Items
-	newData := bytes.NewReader(data)
-	if err := json.NewDecoder(newData).Decode(&items); err != nil {
-		parseError(c, "Failed to newDecoder items.json", err)
-		return err
-	}
+	defer db.Close()
 
 	id := c.Param("id")
-	idInt, err := strconv.Atoi(id)
+	var item Item
+	query := "SELECT name, category_id, image_name FROM items WHERE id = ?"
+	err = db.QueryRow(query, id).Scan(&item.Name, &item.CategoryId, &item.Image)
 	if err != nil {
-		parseError(c, "Invalid ID format", err)
+		if err == sql.ErrNoRows {
+			parseError(c, "Item not found", err)
+			return err
+		}
+		parseError(c, "Failed to query item by ID", err)
 		return err
 	}
 
-	if idInt <= 0 || idInt > len(items.Items) {
-		res := Response{Message: "Item not found"}
-		return c.JSON(http.StatusNotFound, res)
-	}
-
-	item := items.Items[idInt-1]
 	return c.JSON(http.StatusOK, item)
 }
 
