@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	ImgDir    = "images"
-	itemsJson = "./items.json"
+	ImgDir = "images"
+	DBPath = "../db/mercari.sqlite3"
 )
 
 type Response struct {
@@ -92,7 +92,7 @@ func getHashedImage(c echo.Context) (string, error) {
 }
 
 func getItems(c echo.Context) error {
-	db, err := sql.Open("sqlite3", "../db/mercari.sqlite3")
+	db, err := sql.Open("sqlite3", DBPath)
 	if err != nil {
 		parseError(c, "Failed to open mercari.sqlite3", err)
 		return err
@@ -120,7 +120,7 @@ func getItems(c echo.Context) error {
 }
 
 func addItem(c echo.Context) error {
-	db, err := sql.Open("sqlite3", "./mercari.sqlite3")
+	db, err := sql.Open("sqlite3", DBPath)
 	if err != nil {
 		parseError(c, "Failed to open mercari.sqlite3", err)
 		return err
@@ -157,7 +157,7 @@ func addItem(c echo.Context) error {
 }
 
 func getItemById(c echo.Context) error {
-	db, err := sql.Open("sqlite3", "../db/mercari.sqlite3")
+	db, err := sql.Open("sqlite3", DBPath)
 	if err != nil {
 		parseError(c, "Failed to open database", err)
 		return err
@@ -197,7 +197,7 @@ func getImg(c echo.Context) error {
 
 func searchItems(c echo.Context) error {
 	keyword := c.QueryParam("keyword")
-	db, err := sql.Open("sqlite3", "./mercari.sqlite3")
+	db, err := sql.Open("sqlite3", DBPath)
 	if err != nil {
 		parseError(c, "Failed to connect to database", err)
 		return err
