@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,14 +11,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
-	ImgDir = "images"
+	ImgDir    = "images"
 	itemsJson = "./items.json"
 )
 
@@ -35,9 +32,9 @@ type ReturnItem struct {
 }
 
 type Item struct {
-	Name     string `json:"name"`
-	CategoryId int `json:"category_id"`
-	Image    string `json:"image_name"`
+	Name       string `json:"name"`
+	CategoryId int    `json:"category_id"`
+	Image      string `json:"image_name"`
 }
 
 type Items struct {
@@ -46,8 +43,8 @@ type Items struct {
 
 func parseError(c echo.Context, message string, err error) {
 	res := Response{Message: message}
-	c.JSON(http.StatusInternalServerError, res);
-	c.Logger().Error(err);
+	c.JSON(http.StatusInternalServerError, res)
+	c.Logger().Error(err)
 }
 
 func root(c echo.Context) error {
@@ -142,7 +139,7 @@ func addItem(c echo.Context) error {
 		parseError(c, "Failed to convert category_id to int", err)
 		return err
 	}
-	
+
 	hashedImage, err := getHashedImage(c)
 	if err != nil {
 		parseError(c, "Failed to get hashed image", err)
@@ -152,7 +149,7 @@ func addItem(c echo.Context) error {
 	_, err = db.Exec("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)", name, categoryIdInt, hashedImage)
 	if err != nil {
 		parseError(c, "Failed to insert item into database", err)
-        return err
+		return err
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "item added"})
@@ -168,7 +165,7 @@ func getItemById(c echo.Context) error {
 	var items Items
 	newData := bytes.NewReader(data)
 	if err := json.NewDecoder(newData).Decode(&items); err != nil {
-		parseError(c,"Failed to newDecoder items.json", err)
+		parseError(c, "Failed to newDecoder items.json", err)
 		return err
 	}
 
@@ -184,7 +181,7 @@ func getItemById(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, res)
 	}
 
-	item := items.Items[idInt - 1]
+	item := items.Items[idInt-1]
 	return c.JSON(http.StatusOK, item)
 }
 
@@ -204,34 +201,34 @@ func getImg(c echo.Context) error {
 }
 
 func searchItems(c echo.Context) error {
-    keyword := c.QueryParam("keyword")
-    db, err := sql.Open("sqlite3", "./mercari.sqlite3")
-    if err != nil {
+	keyword := c.QueryParam("keyword")
+	db, err := sql.Open("sqlite3", "./mercari.sqlite3")
+	if err != nil {
 		parseError(c, "Failed to connect to database", err)
 		return err
-    }
-    defer db.Close()
+	}
+	defer db.Close()
 
-    query := `SELECT name, category_id FROM items WHERE name LIKE ?`
-    rows, err := db.Query(query, "%"+keyword+"%")
-    if err != nil {
+	query := `SELECT name, category_id FROM items WHERE name LIKE ?`
+	rows, err := db.Query(query, "%"+keyword+"%")
+	if err != nil {
 		parseError(c, "Failed to query items", err)
 		return err
-    }
-    defer rows.Close()
+	}
+	defer rows.Close()
 
-    var items []map[string]string
-    for rows.Next() {
-        var name string
-        var category_id int
-        if err := rows.Scan(&name, &category_id); err != nil {
+	var items []map[string]string
+	for rows.Next() {
+		var name string
+		var category_id int
+		if err := rows.Scan(&name, &category_id); err != nil {
 			parseError(c, "Failed to scan rows", err)
 			return err
-        }
-        items = append(items, map[string]string{"name": name, "category_id": strconv.Itoa(category_id)})
-    }
+		}
+		items = append(items, map[string]string{"name": name, "category_id": strconv.Itoa(category_id)})
+	}
 
-    return c.JSON(http.StatusOK, map[string]interface{}{"items": items})
+	return c.JSON(http.StatusOK, map[string]interface{}{"items": items})
 }
 
 func main() {
