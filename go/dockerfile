@@ -1,8 +1,19 @@
-FROM alpine
+FROM golang:1.22.0-alpine3.19
 
+# ダイナミックリンクでビルドするために必要なファイルをインストール
+RUN apk add --no-cache go gcc musl-dev
 RUN addgroup -S mercari && adduser -S trainee -G mercari
-# RUN chown -R trainee:mercari /path/to/db
 
-USER trainee
+WORKDIR /app
 
-CMD ["go", "version"]
+# dockerfileと同じディレクトリ内のファイルをイメージ内の作業ディレクトリにコピー
+COPY . .
+
+# ファイルの所有権をtrainee:mercariに変更
+RUN chown -R trainee:mercari db
+RUN chown -R trainee:mercari images
+RUN chown trainee:mercari go.mod
+
+RUN go mod tidy
+
+CMD ["go", "run", "app/main.go"]
