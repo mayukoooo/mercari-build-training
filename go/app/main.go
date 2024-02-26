@@ -121,7 +121,7 @@ func getHashedImage(c echo.Context) (string, error) {
 }
 
 func (s ServerImpl) getItems(c echo.Context) error {
-	rows, err := db.Query("SELECT items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
+	rows, err := s.db.Query("SELECT items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
 	if err != nil {
 		parseError(c, "Failed to get items from DB", err)
 		return err
@@ -142,7 +142,7 @@ func (s ServerImpl) getItems(c echo.Context) error {
 }
 
 func (s ServerImpl) addItem(c echo.Context) error {
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category_id INTEGER, image_name TEXT)")
+	_, err := s.db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category_id INTEGER, image_name TEXT)")
 	if err != nil {
 		parseError(c, "Failed to create table", err)
 		return err
@@ -162,7 +162,7 @@ func (s ServerImpl) addItem(c echo.Context) error {
 		return err
 	}
 
-	_, err = db.Exec("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)", name, categoryIdInt, hashedImage)
+	_, err = s.db.Exec("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)", name, categoryIdInt, hashedImage)
 	if err != nil {
 		parseError(c, "Failed to insert item into database", err)
 		return err
@@ -175,7 +175,7 @@ func (s ServerImpl) getItemById(c echo.Context) error {
 	id := c.Param("id")
 	var item Item
 	query := "SELECT name, category_id, image_name FROM items WHERE id = ?"
-	err = db.QueryRow(query, id).Scan(&item.Name, &item.CategoryId, &item.Image)
+	err := s.db.QueryRow(query, id).Scan(&item.Name, &item.CategoryId, &item.Image)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			parseError(c, "Item not found", err)
@@ -203,11 +203,11 @@ func getImg(c echo.Context) error {
 	return c.File(imgPath)
 }
 
-func searchItems(c echo.Context) error {
+func (s ServerImpl) searchItems(c echo.Context) error {
 	keyword := c.QueryParam("keyword")
 
 	query := `SELECT name, category_id FROM items WHERE name LIKE ?`
-	rows, err := db.Query(query, "%"+keyword+"%")
+	rows, err := s.db.Query(query, "%"+keyword+"%")
 	if err != nil {
 		parseError(c, "Failed to query items", err)
 		return err
@@ -271,7 +271,7 @@ func main() {
 	e.GET("/items", serverImpl.getItems)
 	e.GET("/items/:id", serverImpl.getItemById)
 	e.GET("/image/:imageFilename", getImg)
-	e.GET("/search", searchItems)
+	e.GET("/search", serverImpl.searchItems)
 
 	// Start server
 	e.Logger.Fatal(e.Start(":9000"))
