@@ -250,13 +250,7 @@ func main() {
 		e.Logger.Errorf("Failed to open database: %v", err)
 		return
 	}
-	defer func(db *sql.DB) {
-		err := db.Close()
-		if err != nil {
-			e.Logger.Errorf("Failed to close databases: %v", err)
-			return
-		}
-	}(db)
+	defer db.Close()
 
 	serverImpl := ServerImpl{db: db}
 
