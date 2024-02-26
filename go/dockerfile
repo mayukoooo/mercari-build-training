@@ -11,7 +11,6 @@ COPY . .
 
 # ファイルの所有権をtrainee:mercariに変更
 RUN chown -R trainee:mercari db
-RUN chown -R trainee:mercari images
 RUN chown trainee:mercari go.mod
 
 RUN go mod tidy
