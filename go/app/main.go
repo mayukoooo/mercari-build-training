@@ -92,13 +92,6 @@ func getHashedImage(c echo.Context) (string, error) {
 }
 
 func getItems(c echo.Context) error {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		parseError(c, "Failed to open mercari.sqlite3", err)
-		return err
-	}
-	defer db.Close()
-
 	rows, err := db.Query("SELECT items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
 	if err != nil {
 		parseError(c, "Failed to get items from DB", err)
@@ -120,13 +113,6 @@ func getItems(c echo.Context) error {
 }
 
 func addItem(c echo.Context) error {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		parseError(c, "Failed to open mercari.sqlite3", err)
-		return err
-	}
-	defer db.Close()
-
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category_id INTEGER, image_name TEXT)")
 	if err != nil {
 		parseError(c, "Failed to create table", err)
@@ -157,13 +143,6 @@ func addItem(c echo.Context) error {
 }
 
 func getItemById(c echo.Context) error {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		parseError(c, "Failed to open database", err)
-		return err
-	}
-	defer db.Close()
-
 	id := c.Param("id")
 	var item Item
 	query := "SELECT name, category_id, image_name FROM items WHERE id = ?"
@@ -197,12 +176,6 @@ func getImg(c echo.Context) error {
 
 func searchItems(c echo.Context) error {
 	keyword := c.QueryParam("keyword")
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		parseError(c, "Failed to connect to database", err)
-		return err
-	}
-	defer db.Close()
 
 	query := `SELECT name, category_id FROM items WHERE name LIKE ?`
 	rows, err := db.Query(query, "%"+keyword+"%")
@@ -242,6 +215,17 @@ func main() {
 		AllowOrigins: []string{front_url},
 		AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
 	}))
+
+	db, err := sql.Open("sqlite3", DBPath)
+	if err != nil {
+		parseError(c, "Failed to open database", err)
+	}
+	defer func(db *sql.DB) {
+		err := db.Close()
+		if err != nil {
+			parseError(c, "Failed to close database", err)
+		}
+	}(db)
 
 	// Routes
 	e.GET("/", root)
