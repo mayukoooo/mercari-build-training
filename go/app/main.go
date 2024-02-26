@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 	_ "github.com/mattn/go-sqlite3"
@@ -48,7 +47,7 @@ type ServerImpl struct {
 	db *sql.DB
 }
 
-// DBにテーブルを作成する
+// TODO:DBの初期化はアプリケーションロジックと分けて実施するのが一般的なので調査する
 func (s ServerImpl) createTables() error {
 	// スキーマを読み込む
 	itemsSchema, err := os.ReadFile(ItemsSchemaPath)
