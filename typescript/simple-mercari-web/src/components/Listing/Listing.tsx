@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { FC, useState } from "react";
+import { InputForm } from "../InputForm";
 
 const server = process.env.REACT_APP_API_URL || 'http://127.0.0.1:9000';
 
@@ -12,7 +13,7 @@ type formDataType = {
   image: string | File,
 }
 
-export const Listing: React.FC<Prop> = (props) => {
+export const Listing: FC<Prop> = (props) => {
   const { onListingCompleted } = props;
   const initialState = {
     name: "",
@@ -52,15 +53,30 @@ export const Listing: React.FC<Prop> = (props) => {
       })
   };
   return (
-    <div className='Listing'>
-      <form onSubmit={onSubmit}>
-        <div>
-          <input type='text' name='name' id='name' placeholder='name' onChange={onValueChange} required />
-          <input type='text' name='category' id='category' placeholder='category' onChange={onValueChange} />
-          <input type='file' name='image' id='image' onChange={onFileChange} required />
-          <button type='submit'>List this item</button>
-        </div>
+      <form className="Listing" onSubmit={onSubmit}>
+        <InputForm
+          label="Name"
+          name="name"
+          placeholder="name"
+          onChange={onValueChange}
+          required
+         />
+        <InputForm
+          label="Category"
+          name="category"
+          id="category"
+          placeholder="category"
+          onChange={onValueChange}
+          required
+        />
+        <input
+          type="file"
+          name="image"
+          id="image"
+          onChange={onFileChange}
+          required
+        />
+        <button type="submit">List this item</button>
       </form>
-    </div>
   );
-}
+};
