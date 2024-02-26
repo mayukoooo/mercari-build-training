@@ -18,8 +18,10 @@ import (
 )
 
 const (
-	ImgDir = "images"
-	DBPath = "./db/mercari.sqlite3"
+	ImgDir               = "images"
+	DBPath               = "./db/mercari.sqlite3"
+	ItemsSchemaPath      = "./db/items.db"
+	CategoriesSchemaPath = "./db/categories.db"
 )
 
 type Response struct {
@@ -40,6 +42,33 @@ type Item struct {
 
 type Items struct {
 	Items []*ReturnItem `json:"items"`
+}
+
+type ServerImpl struct {
+	db *sql.DB
+}
+
+// TODO:DBの初期化はアプリケーションロジックと分けて実施するのが一般的なので調査する
+func (s ServerImpl) createTables() error {
+	// スキーマを読み込む
+	itemsSchema, err := os.ReadFile(ItemsSchemaPath)
+	if err != nil {
+		return fmt.Errorf("failed to read items schema: %w", err)
+	}
+	categoriesSchema, err := os.ReadFile(CategoriesSchemaPath)
+	if err != nil {
+		return fmt.Errorf("failed to read categories schema: %w", err)
+	}
+
+	// テーブルがない場合は作成
+	if _, err := s.db.Exec(string(categoriesSchema)); err != nil {
+		return fmt.Errorf("failed to create categories table: %w", err)
+	}
+	if _, err := s.db.Exec(string(itemsSchema)); err != nil {
+		return fmt.Errorf("failed to create items table: %w", err)
+	}
+
+	return nil
 }
 
 func parseError(c echo.Context, message string, err error) {
@@ -91,15 +120,8 @@ func getHashedImage(c echo.Context) (string, error) {
 	return hashedImage, nil
 }
 
-func getItems(c echo.Context) error {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		parseError(c, "Failed to open mercari.sqlite3", err)
-		return err
-	}
-	defer db.Close()
-
-	rows, err := db.Query("SELECT items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
+func (s ServerImpl) getItems(c echo.Context) error {
+	rows, err := s.db.Query("SELECT items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
 	if err != nil {
 		parseError(c, "Failed to get items from DB", err)
 		return err
@@ -119,15 +141,8 @@ func getItems(c echo.Context) error {
 	return c.JSON(http.StatusOK, items)
 }
 
-func addItem(c echo.Context) error {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		parseError(c, "Failed to open mercari.sqlite3", err)
-		return err
-	}
-	defer db.Close()
-
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category_id INTEGER, image_name TEXT)")
+func (s ServerImpl) addItem(c echo.Context) error {
+	_, err := s.db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category_id INTEGER, image_name TEXT)")
 	if err != nil {
 		parseError(c, "Failed to create table", err)
 		return err
@@ -147,7 +162,7 @@ func addItem(c echo.Context) error {
 		return err
 	}
 
-	_, err = db.Exec("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)", name, categoryIdInt, hashedImage)
+	_, err = s.db.Exec("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)", name, categoryIdInt, hashedImage)
 	if err != nil {
 		parseError(c, "Failed to insert item into database", err)
 		return err
@@ -156,18 +171,11 @@ func addItem(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "item added"})
 }
 
-func getItemById(c echo.Context) error {
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		parseError(c, "Failed to open database", err)
-		return err
-	}
-	defer db.Close()
-
+func (s ServerImpl) getItemById(c echo.Context) error {
 	id := c.Param("id")
 	var item Item
 	query := "SELECT name, category_id, image_name FROM items WHERE id = ?"
-	err = db.QueryRow(query, id).Scan(&item.Name, &item.CategoryId, &item.Image)
+	err := s.db.QueryRow(query, id).Scan(&item.Name, &item.CategoryId, &item.Image)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			parseError(c, "Item not found", err)
@@ -195,17 +203,11 @@ func getImg(c echo.Context) error {
 	return c.File(imgPath)
 }
 
-func searchItems(c echo.Context) error {
+func (s ServerImpl) searchItems(c echo.Context) error {
 	keyword := c.QueryParam("keyword")
-	db, err := sql.Open("sqlite3", DBPath)
-	if err != nil {
-		parseError(c, "Failed to connect to database", err)
-		return err
-	}
-	defer db.Close()
 
 	query := `SELECT name, category_id FROM items WHERE name LIKE ?`
-	rows, err := db.Query(query, "%"+keyword+"%")
+	rows, err := s.db.Query(query, "%"+keyword+"%")
 	if err != nil {
 		parseError(c, "Failed to query items", err)
 		return err
@@ -243,13 +245,27 @@ func main() {
 		AllowMethods: []string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
 	}))
 
+	db, err := sql.Open("sqlite3", DBPath)
+	if err != nil {
+		e.Logger.Errorf("Failed to open database: %v", err)
+		return
+	}
+	defer db.Close()
+
+	serverImpl := ServerImpl{db: db}
+
+	if err := serverImpl.createTables(); err != nil {
+		e.Logger.Errorf("Failed to create tables: %v", err)
+		return
+	}
+
 	// Routes
 	e.GET("/", root)
-	e.POST("/items", addItem)
-	e.GET("/items", getItems)
-	e.GET("/items/:id", getItemById)
+	e.POST("/items", serverImpl.addItem)
+	e.GET("/items", serverImpl.getItems)
+	e.GET("/items/:id", serverImpl.getItemById)
 	e.GET("/image/:imageFilename", getImg)
-	e.GET("/search", searchItems)
+	e.GET("/search", serverImpl.searchItems)
 
 	// Start server
 	e.Logger.Fatal(e.Start(":9000"))
