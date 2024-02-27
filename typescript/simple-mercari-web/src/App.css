@@ -1,27 +1,26 @@
-.App {
-  text-align: center;
+body {
+  background-color: #f0f0f0;
 }
 
-.Title {
-  background-color: #222427;
-  min-height: 8vh;
+.Root {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: left;
-  font-size: calc(10px + 1vmin);
-  color: white;
 }
 
-.Listing {
-  background-color: #222427;
-  min-height: 8vh;
+form {
+  background-color: white;
+  border-radius: 20px;
+  padding: 60px 180px;
+  row-gap: 15px;
+}
+
+.FormWrapper {
+  align-items: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: left;
-  font-size: calc(10px + 1vmin);
-  color: white;
+  row-gap: 15px;
+  margin-bottom: 20px;
 }
 
 .ItemList {
@@ -46,4 +45,45 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.InputFormLabel {
+  color: #2E2E2E;
+  cursor: pointer;
+  display: block;
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+input {
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  box-sizing: border-box;
+  font-size: 14px;
+  padding: 10px;
+  width: 300px;
+}
+
+.InputImage {
+  border: none;
+}
+
+button {
+  border: none;
+  display: block;
+  background-color: #3F4066;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  height: 40px;
+  margin: auto;
+  width: 200px;
+  transition: background-color 0.3s;
+}
+
+button:hover {
+  background-color: #57588b;
 }

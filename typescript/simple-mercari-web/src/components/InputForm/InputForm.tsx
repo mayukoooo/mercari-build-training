@@ -1,20 +1,22 @@
-import { ComponentPropsWithoutRef, FC } from "react";
+import { ComponentPropsWithoutRef, FC } from 'react'
 
-type InputFormProps = ComponentPropsWithoutRef<"input"> & {
-  label: string;
-};
+type InputFormProps = ComponentPropsWithoutRef<'input'> & {
+  label: string
+}
 
 export const InputForm: FC<InputFormProps> = ({
   id,
-  type = "text",
+  type = 'text',
   name,
   placeholder,
   label,
   onChange,
 }) => {
   return (
-    <label className="InputForm">
-      {label}
+    <div>
+      <label className="InputFormLabel" htmlFor={id}>
+        {label}
+      </label>
       <input
         id={id}
         type={type}
@@ -22,6 +24,6 @@ export const InputForm: FC<InputFormProps> = ({
         placeholder={placeholder}
         onChange={onChange}
       />
-    </label>
-  );
-};
+    </div>
+  )
+}
