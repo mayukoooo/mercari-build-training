@@ -29,20 +29,15 @@ type Response struct {
 	Message string `json:"message"`
 }
 
-type ReturnItem struct {
+type Item struct {
+	Id       int    `json:"id"`
 	Name     string `json:"name"`
 	Category string `json:"category"`
 	Image    string `json:"image_name"`
 }
 
-type Item struct {
-	Name       string `json:"name"`
-	CategoryId int    `json:"category_id"`
-	Image      string `json:"image_name"`
-}
-
 type Items struct {
-	Items []*ReturnItem `json:"items"`
+	Items []Item `json:"items"`
 }
 
 type ServerImpl struct {
@@ -122,22 +117,22 @@ func getHashedImage(c echo.Context) (string, error) {
 }
 
 func (s ServerImpl) getItems(c echo.Context) error {
-	rows, err := s.db.Query("SELECT items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
+	rows, err := s.db.Query("SELECT items.id, items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
 	if err != nil {
 		parseError(c, "Failed to get items from DB", err)
 		return err
 	}
 	defer rows.Close()
 
-	items := Items{Items: []*ReturnItem{}}
+	items := Items{Items: []Item{}}
 	for rows.Next() {
-		var item ReturnItem
-		err = rows.Scan(&item.Name, &item.Category, &item.Image)
+		var item Item
+		err = rows.Scan(&item.Id, &item.Name, &item.Category, &item.Image)
 		if err != nil {
 			parseError(c, "Failed to scan rows", err)
 			return err
 		}
-		items.Items = append(items.Items, &item)
+		items.Items = append(items.Items, item)
 	}
 	return c.JSON(http.StatusOK, items)
 }
@@ -209,7 +204,7 @@ func (s ServerImpl) getItemById(c echo.Context) error {
 	id := c.Param("id")
 	var item Item
 	query := "SELECT name, category_id, image_name FROM items WHERE id = ?"
-	err := s.db.QueryRow(query, id).Scan(&item.Name, &item.CategoryId, &item.Image)
+	err := s.db.QueryRow(query, id).Scan(&item.Name, &item.Category, &item.Image)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			parseError(c, "Item not found", err)
