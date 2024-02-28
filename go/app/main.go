@@ -83,7 +83,7 @@ func root(c echo.Context) error {
 }
 
 func getHashedImage(c echo.Context) (string, error) {
-	imageFile, err := c.FormFile("image_name")
+	imageFile, err := c.FormFile("image")
 	if err != nil {
 		parseError(c, "Failed to get image file", err)
 		return "", err
