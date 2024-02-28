@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,20 +29,15 @@ type Response struct {
 	Message string `json:"message"`
 }
 
-type ReturnItem struct {
+type Item struct {
+	Id       int    `json:"id"`
 	Name     string `json:"name"`
 	Category string `json:"category"`
 	Image    string `json:"image_name"`
 }
 
-type Item struct {
-	Name       string `json:"name"`
-	CategoryId int    `json:"category_id"`
-	Image      string `json:"image_name"`
-}
-
 type Items struct {
-	Items []*ReturnItem `json:"items"`
+	Items []Item `json:"items"`
 }
 
 type ServerImpl struct {
@@ -83,7 +79,7 @@ func root(c echo.Context) error {
 }
 
 func getHashedImage(c echo.Context) (string, error) {
-	imageFile, err := c.FormFile("image_name")
+	imageFile, err := c.FormFile("image")
 	if err != nil {
 		parseError(c, "Failed to get image file", err)
 		return "", err
@@ -121,40 +117,29 @@ func getHashedImage(c echo.Context) (string, error) {
 }
 
 func (s ServerImpl) getItems(c echo.Context) error {
-	rows, err := s.db.Query("SELECT items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
+	rows, err := s.db.Query("SELECT items.id, items.name, categories.name, items.image_name FROM items JOIN categories ON items.category_id = categories.id;")
 	if err != nil {
 		parseError(c, "Failed to get items from DB", err)
 		return err
 	}
 	defer rows.Close()
 
-	items := Items{Items: []*ReturnItem{}}
+	items := Items{Items: []Item{}}
 	for rows.Next() {
-		var item ReturnItem
-		err = rows.Scan(&item.Name, &item.Category, &item.Image)
+		var item Item
+		err = rows.Scan(&item.Id, &item.Name, &item.Category, &item.Image)
 		if err != nil {
 			parseError(c, "Failed to scan rows", err)
 			return err
 		}
-		items.Items = append(items.Items, &item)
+		items.Items = append(items.Items, item)
 	}
 	return c.JSON(http.StatusOK, items)
 }
 
 func (s ServerImpl) addItem(c echo.Context) error {
-	_, err := s.db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category_id INTEGER, image_name TEXT)")
-	if err != nil {
-		parseError(c, "Failed to create table", err)
-		return err
-	}
-
 	name := c.FormValue("name")
-	categoryId := c.FormValue("category_id")
-	categoryIdInt, err := strconv.Atoi(categoryId)
-	if err != nil {
-		parseError(c, "Failed to convert category_id to int", err)
-		return err
-	}
+	category := c.FormValue("category")
 
 	hashedImage, err := getHashedImage(c)
 	if err != nil {
@@ -162,20 +147,64 @@ func (s ServerImpl) addItem(c echo.Context) error {
 		return err
 	}
 
-	_, err = s.db.Exec("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)", name, categoryIdInt, hashedImage)
+	// トランザクション開始
+	tx, err := s.db.Begin()
 	if err != nil {
-		parseError(c, "Failed to insert item into database", err)
+		c.Logger().Errorf("Error starting database transaction: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Error starting database transaction")
+	}
+	// トランザクション内でエラーが発生した場合、ロールバックすることでデータベースの状態を元に戻す
+	defer tx.Rollback()
+
+	var categoryID int64
+	// カテゴリ名に対応するカテゴリIDを取得
+	err = tx.QueryRow("SELECT id FROM categories WHERE name = ?", category).Scan(&categoryID)
+
+	// カテゴリが存在しない場合、新しいカテゴリを追加
+	if errors.Is(err, sql.ErrNoRows) {
+		result, err := tx.Exec("INSERT INTO categories (name) VALUES (?)", category)
+		if err != nil {
+			parseError(c, "Failed to insert category into database", err)
+			return err
+		}
+		categoryID, _ = result.LastInsertId()
+	} else if err != nil {
+		parseError(c, "Failed to query category from the database", err)
 		return err
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "item added"})
+	// itemsテーブルに商品を追加
+	statement, err := tx.Prepare("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)")
+	if err != nil {
+		parseError(c, "Failed to prepare statement for database insertion", err)
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(name, categoryID, hashedImage)
+	if err != nil {
+		c.Logger().Errorf("Error saving item to database: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Error saving item to database")
+	}
+
+	// トランザクションをコミットすると、トランザクション内で行った変更がデータベースに反映される
+	if err := tx.Commit(); err != nil {
+		parseError(c, "Failed to commit transaction", err)
+		return err
+	}
+
+	// ログとJSONレスポンスの作成
+	c.Logger().Infof("Received item: %s, Category: %s", name, category)
+	message := fmt.Sprintf("item received: %s", name)
+	res := Response{Message: message}
+
+	return c.JSON(http.StatusOK, res)
 }
 
 func (s ServerImpl) getItemById(c echo.Context) error {
 	id := c.Param("id")
 	var item Item
 	query := "SELECT name, category_id, image_name FROM items WHERE id = ?"
-	err := s.db.QueryRow(query, id).Scan(&item.Name, &item.CategoryId, &item.Image)
+	err := s.db.QueryRow(query, id).Scan(&item.Name, &item.Category, &item.Image)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			parseError(c, "Item not found", err)
