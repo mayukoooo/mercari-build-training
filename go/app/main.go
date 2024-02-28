@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -142,19 +143,8 @@ func (s ServerImpl) getItems(c echo.Context) error {
 }
 
 func (s ServerImpl) addItem(c echo.Context) error {
-	_, err := s.db.Exec("CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, category_id INTEGER, image_name TEXT)")
-	if err != nil {
-		parseError(c, "Failed to create table", err)
-		return err
-	}
-
 	name := c.FormValue("name")
-	categoryId := c.FormValue("category_id")
-	categoryIdInt, err := strconv.Atoi(categoryId)
-	if err != nil {
-		parseError(c, "Failed to convert category_id to int", err)
-		return err
-	}
+	category := c.FormValue("category")
 
 	hashedImage, err := getHashedImage(c)
 	if err != nil {
@@ -162,13 +152,57 @@ func (s ServerImpl) addItem(c echo.Context) error {
 		return err
 	}
 
-	_, err = s.db.Exec("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)", name, categoryIdInt, hashedImage)
+	// トランザクション開始
+	tx, err := s.db.Begin()
 	if err != nil {
-		parseError(c, "Failed to insert item into database", err)
+		c.Logger().Errorf("Error starting database transaction: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Error starting database transaction")
+	}
+	// トランザクション内でエラーが発生した場合、ロールバックすることでデータベースの状態を元に戻す
+	defer tx.Rollback()
+
+	var categoryID int64
+	// カテゴリ名に対応するカテゴリIDを取得
+	err = tx.QueryRow("SELECT id FROM categories WHERE name = ?", category).Scan(&categoryID)
+
+	// カテゴリが存在しない場合、新しいカテゴリを追加
+	if errors.Is(err, sql.ErrNoRows) {
+		result, err := tx.Exec("INSERT INTO categories (name) VALUES (?)", category)
+		if err != nil {
+			parseError(c, "Failed to insert category into database", err)
+			return err
+		}
+		categoryID, _ = result.LastInsertId()
+	} else if err != nil {
+		parseError(c, "Failed to query category from the database", err)
 		return err
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "item added"})
+	// itemsテーブルに商品を追加
+	statement, err := tx.Prepare("INSERT INTO items (name, category_id, image_name) VALUES (?, ?, ?)")
+	if err != nil {
+		parseError(c, "Failed to prepare statement for database insertion", err)
+	}
+	defer statement.Close()
+
+	_, err = statement.Exec(name, categoryID, hashedImage)
+	if err != nil {
+		c.Logger().Errorf("Error saving item to database: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Error saving item to database")
+	}
+
+	// トランザクションをコミットすると、トランザクション内で行った変更がデータベースに反映される
+	if err := tx.Commit(); err != nil {
+		parseError(c, "Failed to commit transaction", err)
+		return err
+	}
+
+	// ログとJSONレスポンスの作成
+	c.Logger().Infof("Received item: %s, Category: %s", name, category)
+	message := fmt.Sprintf("item received: %s", name)
+	res := Response{Message: message}
+
+	return c.JSON(http.StatusOK, res)
 }
 
 func (s ServerImpl) getItemById(c echo.Context) error {
