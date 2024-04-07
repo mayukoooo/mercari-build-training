@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -25,16 +29,17 @@ type Response struct {
 type Item struct {
 	Name     string `json:"name"`
 	Category string `json:"category"`
+	Image    string `json:"image_name"`
 }
 
-type ItemList struct {
-	Items []Item `json:"items"`
+type Items struct {
+	Items []*Item `json:"items"`
 }
 
-func getErrorStatus(c echo.Context, message string) error {
-	c.Logger().Error(message)
+func parseError(c echo.Context, message string, error error) {
 	res := Response{Message: message}
-	return c.JSON(http.StatusInternalServerError, res)
+	c.JSON(http.StatusInternalServerError, res);
+	c.Logger().Error(error);
 }
 
 func root(c echo.Context) error {
@@ -45,35 +50,85 @@ func root(c echo.Context) error {
 func getItems(c echo.Context) error {
 	data, err := os.ReadFile(itemsJson)
 	if err != nil {
+		parseError(c, "Failed to read items.json", err)
 		return err
 	}
 	return c.JSONBlob(http.StatusOK, data)
 }
 
+func getHashedImage(c echo.Context) (string, error) {
+	imageFile, error := c.FormFile("image")
+	if error != nil {
+		parseError(c, "Failed to get image file", error)
+		return "", error
+	}
+
+	src, err := imageFile.Open()
+	if err != nil {
+		parseError(c, "Failed to open image file", error)
+		return "", err
+	}
+	defer src.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, src); err != nil {
+		parseError(c, "Failed to hash image file", err)
+		return "", err
+	}
+
+	src.Seek(0, 0)
+	hashedImage := fmt.Sprintf("%x.jpg", hash.Sum(nil))
+
+	dst, err := os.Create(path.Join(ImgDir, hashedImage))
+	if err != nil {
+		parseError(c, "Failed to create image file", err)
+		return "", err
+	}
+
+	defer dst.Close()
+	if _, err := io.Copy(dst, src); err != nil {
+		parseError(c, "Failed to copy image file", err)
+		return "", err
+	}
+
+	return hashedImage ,nil
+}
+
 func addItem(c echo.Context) error {
 	data, error := os.ReadFile(itemsJson)
 	if error != nil {
-		getErrorStatus(c, "Notfound items.json")
+		parseError(c, "Notfound items.json", error)
+		return error
 	}
 
-	var itemList ItemList
-	if error := json.Unmarshal(data, &itemList); error != nil {
-		getErrorStatus(c, "Failed to unmarshal items.json")
+	var items Items
+	newData := bytes.NewReader(data)
+	if error := json.NewDecoder(newData).Decode(&items); error != nil {
+		parseError(c, "Failed to newReader items.json", error)
+		return error
 	}
 
 	name := c.FormValue("name")
 	category := c.FormValue("category")
-	newItem := Item{Name: name, Category: category}
-
-	itemList.Items = append(itemList.Items, newItem)
-
-	updatedData, err := json.Marshal(itemList)
-	if err != nil {
-		getErrorStatus(c, "Failed to marshal items.json")
+	hashedImage, error := getHashedImage(c)
+	if error != nil {
+		parseError(c, "Failed to get hashed image", error)
+		return error
 	}
 
-	if err := os.WriteFile(itemsJson, updatedData, 0644); err != nil {
-		getErrorStatus(c, "Failed to write items.json")
+	newItem := Item{Name: name, Category: category, Image: hashedImage}
+
+	items.Items = append(items.Items, &newItem)
+
+	updatedData, error := json.Marshal(items)
+	if error != nil {
+		parseError(c, "Failed to marshal items.json", error)
+		return error
+	}
+
+	if error := os.WriteFile(itemsJson, updatedData, 0644); error != nil {
+		parseError(c, "Failed to write items.json", error)
+		return error
 	}
 
 	message := fmt.Sprintf("item received: %s", name)
@@ -83,6 +138,36 @@ func addItem(c echo.Context) error {
   // but in that case, you need to implement and return a URL
   //   that returns information on the posted item.
 	return c.JSON(http.StatusOK, res)
+}
+
+func getItemById(c echo.Context) error {
+	data, error := os.ReadFile(itemsJson)
+	if error != nil {
+		parseError(c, "Failed to read items.json", error)
+		return error
+	}
+
+	var items Items
+	newData := bytes.NewReader(data)
+	if error := json.NewDecoder(newData).Decode(&items); error != nil {
+		parseError(c,"Failed to newDecoder items.json", error)
+		return error
+	}
+
+	id := c.Param("id")
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		parseError(c, "Invalid ID format", err)
+		return err
+	}
+
+	if idInt <= 0 || idInt > len(items.Items) {
+		res := Response{Message: "Item not found"}
+		return c.JSON(http.StatusNotFound, res)
+	}
+
+	item := items.Items[idInt - 1]
+	return c.JSON(http.StatusOK, item)
 }
 
 func getImg(c echo.Context) error {
@@ -121,6 +206,7 @@ func main() {
 	e.GET("/", root)
 	e.POST("/items", addItem)
 	e.GET("/items", getItems)
+	e.GET("/items/:id", getItemById)
 	e.GET("/image/:imageFilename", getImg)
 
 	// Start server
