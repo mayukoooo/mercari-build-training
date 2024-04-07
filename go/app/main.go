@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,10 +15,26 @@ import (
 
 const (
 	ImgDir = "images"
+	itemsJson = "./items.json"
 )
 
 type Response struct {
 	Message string `json:"message"`
+}
+
+type Item struct {
+	Name     string `json:"name"`
+	Category string `json:"category"`
+}
+
+type ItemList struct {
+	Items []Item `json:"items"`
+}
+
+func getErrorStatus(c echo.Context, message string) error {
+	c.Logger().Error(message)
+	res := Response{Message: message}
+	return c.JSON(http.StatusInternalServerError, res)
 }
 
 func root(c echo.Context) error {
@@ -25,10 +42,39 @@ func root(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
+func getItems(c echo.Context) error {
+	data, err := os.ReadFile(itemsJson)
+	if err != nil {
+		return err
+	}
+	return c.JSONBlob(http.StatusOK, data)
+}
+
 func addItem(c echo.Context) error {
-	// Get form data
+	data, error := os.ReadFile(itemsJson)
+	if error != nil {
+		getErrorStatus(c, "Notfound items.json")
+	}
+
+	var itemList ItemList
+	if error := json.Unmarshal(data, &itemList); error != nil {
+		getErrorStatus(c, "Failed to unmarshal items.json")
+	}
+
 	name := c.FormValue("name")
-	c.Logger().Infof("Receive item: %s", name)
+	category := c.FormValue("category")
+	newItem := Item{Name: name, Category: category}
+
+	itemList.Items = append(itemList.Items, newItem)
+
+	updatedData, err := json.Marshal(itemList)
+	if err != nil {
+		getErrorStatus(c, "Failed to marshal items.json")
+	}
+
+	if err := os.WriteFile(itemsJson, updatedData, 0644); err != nil {
+		getErrorStatus(c, "Failed to write items.json")
+	}
 
 	message := fmt.Sprintf("item received: %s", name)
 	res := Response{Message: message}
@@ -74,8 +120,8 @@ func main() {
 	// Routes
 	e.GET("/", root)
 	e.POST("/items", addItem)
+	e.GET("/items", getItems)
 	e.GET("/image/:imageFilename", getImg)
-
 
 	// Start server
 	e.Logger.Fatal(e.Start(":9000"))
